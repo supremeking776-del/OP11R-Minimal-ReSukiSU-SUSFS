@@ -75,10 +75,10 @@ jobs:
           If there are new updates, YOU MUST use standard `git merge upstream/main` (or equivalent) to integrate the updates. 
 
           STRICT WORKFLOW RULE (CRITICAL): 
-          - DO NOT manually create, switch, or checkout any new branches (e.g., NO `git checkout -b`, NO `git switch`)! 
-          - DO NOT use the `gh` CLI tool!
-          - WHY: The system has already prepared a specialized temporary branch for you. If you switch branches, you will break the underlying GitHub Actions infrastructure, lose your authentication context, and the system will fail to create a Pull Request.
-          - YOUR TASK: Stay exactly where you are. Perform the `git merge` and file modifications on the CURRENT branch only.
+          - You must remain on the CURRENT branch. Do not switch to or create any other branches.
+          - Do not attempt to manually create Pull Requests or push code using external command-line tools.
+          - WHY: The system manages a specialized temporary branch and the necessary authentication. Deviating from the current branch will cause the automation to fail and prevent the Pull Request from being generated.
+          - YOUR TASK: Simply perform the 'git merge' and any required file modifications on the current branch. Stay exactly where you are.
 
           WARNING: Do NOT run `git merge --abort` and switch to manually checking out files (e.g. `git checkout upstream/main -- configs/`)! You MUST preserve the upstream Git history and commit signatures. DO NOT squash everything into a single manual commit!
           After the merge is successfully committed to the current branch, simply finish your task. The system will automatically handle the push and Pull Request creation. YOU MUST STRICTLY FOLLOW THESE MERGE GUIDELINES:
