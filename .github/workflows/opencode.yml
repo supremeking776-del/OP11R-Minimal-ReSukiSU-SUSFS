@@ -188,15 +188,37 @@ jobs:
             curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" -H "Content-Type: application/json" -d "$PAYLOAD" > /dev/null
           done
 
+      - name: Prepare Custom Provider Config
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const config = {
+              "$schema": "https://opencode.ai/config.json",
+              "provider": {
+                "custom-openai": {
+                  "npm": "@ai-sdk/openai-compatible",
+                  "name": "Custom OpenAI Provider",
+                  "apiKey": "{env:OPENAI_API_KEY}",
+                  "options": {
+                    "baseURL": process.env.OPENAI_BASE_URL
+                  }
+                }
+              }
+            };
+            fs.writeFileSync('opencode.json', JSON.stringify(config, null, 2));
+        env:
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+
       # 第三步：调用 Agent
       - name: Run opencode
         id: agent
         uses: anomalyco/opencode/github@latest
         env:
-          XIAOMI_API_KEY: ${{ secrets.XIAOMI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          model: xiaomi-token-plan-cn/mimo-v2-pro
+          model: custom-openai/${{ secrets.OPENAI_MODEL }}
           prompt: ${{ steps.prep.outputs.prompt }}
 
       - name: Notify TG (Agent Finish)
