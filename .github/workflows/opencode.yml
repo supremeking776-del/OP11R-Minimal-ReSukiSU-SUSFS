@@ -149,8 +149,8 @@ jobs:
         uses: anomalyco/opencode/github@latest
         env:
           XIAOMI_API_KEY: ${{ secrets.XIAOMI_API_KEY }}
-          # Provided for API access, but restricted via prompt from manual PR/branching.
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Using GITHUB_TOKEN as it was present during the previous successful run.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: xiaomi-token-plan-cn/mimo-v2-pro
           prompt: ${{ steps.prep.outputs.prompt }}
