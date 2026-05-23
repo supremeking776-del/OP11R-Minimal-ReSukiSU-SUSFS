@@ -305,7 +305,7 @@ jobs:
           if [ "$STATUS" != "success" ]; then
             MSG_TEXT+="━━━━━━━━━━━━━━━━━━"$'\n'
             MSG_TEXT+="👉 <i>The build failed. To ask the agent to fix it, comment:</i>"$'\n'
-            MSG_TEXT+="<code>/oc please review the build logs, fetch the corresponding kernel source code and other .patch files, and fix the compile errors</code>"
+            MSG_TEXT+="<code>/oc please review the build logs, fetch the corresponding kernel source code and other .patch files if needed, and fix the compile errors</code>"
           fi
           PAYLOAD=$(jq -n --arg chat_id "$TG_CHAT_ID" --arg text "$MSG_TEXT" '{chat_id: $chat_id, parse_mode: "HTML", disable_web_page_preview: true, text: $text}')
           curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" -H "Content-Type: application/json" -d "$PAYLOAD" > /dev/null
@@ -324,7 +324,7 @@ jobs:
           ❌ **Test build failed.**
           
           The AI agent can attempt to fix the errors. Please check the action logs, and reply to this PR with:
-          `/oc please review the build logs, fetch the corresponding kernel source code and other .patch files, and fix the compile errors`
+          `/oc please review the build logs, fetch the corresponding kernel source code and other .patch files if needed, and fix the compile errors`
           EOF
           )
           fi
