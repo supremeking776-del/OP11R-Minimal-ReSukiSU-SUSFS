@@ -10,7 +10,11 @@
       "models": {
         "${OPENAI_MODEL}": {
           "name": "Custom Model",
-          "reasoning": false
+          "reasoning": false,
+          "limit": {
+            "context": 200000,
+            "output": 8192
+          }
         }
       }
     }
