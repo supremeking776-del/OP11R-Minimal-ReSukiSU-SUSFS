@@ -66,13 +66,15 @@ jobs:
         )
     runs-on: ubuntu-latest
     env:
-      # Quiet opencode's internal INFO/pino spam (the `INFO (#NNNN): created/
-      # stream/tracking …` lines) while keeping the agent's tool/shell
-      # transcript and real errors. opencode's `--log-level` flag just writes
-      # process.env.OPENCODE_LOG_LEVEL, which the logger reads back — so setting
-      # this env directly is equivalent to passing the flag. Job-level env
-      # propagates into the action's `opencode github run`.
-      OPENCODE_LOG_LEVEL: ERROR
+      # Quiet opencode's internal pino spam (`INFO (#NNNN): created/stream/
+      # tracking …`). In the binary, the stderr log printer is attached only
+      # when process.env.OPENCODE_PRINT_LOGS === "1":
+      #   lJ(){ return OPENCODE_PRINT_LOGS==="1" ? [transport, printer] : [transport] }
+      # The agent's own output (tool calls, "Response: …") goes straight to
+      # stdout, NOT through this logger, so disabling the printer keeps the
+      # useful transcript while dropping the INFO noise. (--log-level /
+      # OPENCODE_LOG_LEVEL had no effect in CI; this is the actual gate.)
+      OPENCODE_PRINT_LOGS: "0"
     permissions:
       id-token: write
       contents: write
