@@ -1269,8 +1269,13 @@ runs:
             OP13-6.6.30)
               HMBIRD_MODEL="OP13-PJZ" ;;
           esac
-          dos2unix "$FENGCHI_DIR/fengchi_${HMBIRD_MODEL}_${OP_OS_VERSION}.patch"
-          if ! patch -p1 --fuzz=2 < "$FENGCHI_DIR/fengchi_${HMBIRD_MODEL}_${OP_OS_VERSION}.patch"; then
+          # Upstream WildKernels/kernel_patches names fengchi patches with the
+          # A14/A15/A16 OS convention (e.g. fengchi_OP13T_A16.patch). This fork
+          # keeps OOS naming everywhere else, so translate OOS<NN> -> A<NN> only
+          # for the fengchi filename lookup against the upstream patches repo.
+          HMBIRD_OS="${OP_OS_VERSION/OOS/A}"
+          dos2unix "$FENGCHI_DIR/fengchi_${HMBIRD_MODEL}_${HMBIRD_OS}.patch"
+          if ! patch -p1 --fuzz=2 < "$FENGCHI_DIR/fengchi_${HMBIRD_MODEL}_${HMBIRD_OS}.patch"; then
             echo "::warning::hmbird fengchi patch did not apply cleanly. Continuing without it."
             find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
             find . -name "*.rej" -delete 2>/dev/null || true
@@ -1463,9 +1468,9 @@ runs:
         fi
         echo "Patching use_unlikely_wrap_cpufreq.patch"
         if ! patch -p1 --fuzz=2 --forward < "$KERNEL_PATCHES_FOLDER/common/use_unlikely_wrap_cpufreq.patch"; then
-          echo "::error::use_unlikely_wrap_cpufreq patch failed. Dumping all .rej files:"
+          echo "::warning::use_unlikely_wrap_cpufreq patch did not apply cleanly. Continuing without it (cpufreq optimization only)."
           find . -name "*.rej" -exec echo "=== {} ===" \; -exec cat {} \;
-          exit 1
+          find . -name "*.rej" -delete 2>/dev/null || true
         fi
         
         echo "✅ Other patches applied"
@@ -1488,7 +1493,8 @@ runs:
           OP10pro-5.10.209|OP10t-5.10.209|OP-ACE-5.10.209|OP11r-5.10.209|\
           OP-NORD-3-5.10.209|OP-ACE-RACE-5.10.209)
             if [[ "$OP_OS_VERSION" == "OOS15" ]]; then
-              NTSYNC_PATCH="$NTSYNC_FOLDER/ntsync_compat_android12-5.10_OOS14.patch"
+              # Upstream names this compat patch with the A-OS convention (_A14).
+              NTSYNC_PATCH="$NTSYNC_FOLDER/ntsync_compat_android12-5.10_A14.patch"
             fi
             ;;
         esac
@@ -1497,8 +1503,8 @@ runs:
             echo "::error::NTSync compat patch not found for ${OP_MODEL}: $(basename $NTSYNC_PATCH)"
             exit 1
           fi
-        elif [ -f "$NTSYNC_FOLDER/ntsync_compat_${GKI_KEY}_${OP_OS_VERSION}.patch" ]; then
-          NTSYNC_PATCH="$NTSYNC_FOLDER/ntsync_compat_${GKI_KEY}_${OP_OS_VERSION}.patch"
+        elif [ -f "$NTSYNC_FOLDER/ntsync_compat_${GKI_KEY}_${OP_OS_VERSION/OOS/A}.patch" ]; then
+          NTSYNC_PATCH="$NTSYNC_FOLDER/ntsync_compat_${GKI_KEY}_${OP_OS_VERSION/OOS/A}.patch"
         elif [ -f "$NTSYNC_FOLDER/ntsync_compat_${GKI_KEY}.patch" ]; then
           NTSYNC_PATCH="$NTSYNC_FOLDER/ntsync_compat_${GKI_KEY}.patch"
         else

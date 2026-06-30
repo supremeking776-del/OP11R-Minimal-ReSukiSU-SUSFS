@@ -880,6 +880,17 @@ jobs:
           merge-multiple: true
           skip-decompress: true
 
+      - name: 🧹 Exclude ccache binary from release staging
+        run: |
+          # merge-multiple pulls every run artifact (including the shared
+          # ccache-binary) into ./downloaded-artifacts. The ccache binary is a
+          # build-time helper and must never become a release asset, so drop it
+          # before notes generation / asset upload. The ccache download-once
+          # mechanism (prepare_ccache job + ccache-binary artifact) is untouched.
+          find ./downloaded-artifacts -maxdepth 2 -type f -name ccache -delete
+          rm -rf ./downloaded-artifacts/ccache-binary
+          echo "✅ ccache binary excluded from release staging"
+
       - name: 📝 Generate Device List and Final Release Notes
         id: generate-notes
         run: |
