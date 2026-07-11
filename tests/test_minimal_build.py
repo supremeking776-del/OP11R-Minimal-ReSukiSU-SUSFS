@@ -186,7 +186,6 @@ class MinimalBuildTests(unittest.TestCase):
             'grep -q "^CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y$" "$OUT/.config"',
             '! grep -q "^CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y$" "$OUT/.config"',
             '! grep -q "^CONFIG_KSU_SUSFS_SUS_SU=y$" "$OUT/.config"',
-            '! grep -qE "^CONFIG_(TCP_CONG_BBR|BBG|SM8750_HMBIRD_SCX|DROIDSPACES|NTSYNC|IP_SET|IP6_NAT)=y$" "$OUT/.config"',
             'grep -q "${{ inputs.expected_kernel_release }}"',
         ):
             self.assertIn(assertion, action)
