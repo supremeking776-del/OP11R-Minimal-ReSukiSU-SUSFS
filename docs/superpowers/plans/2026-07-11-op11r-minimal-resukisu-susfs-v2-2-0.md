@@ -138,7 +138,7 @@ Replace with:
 
 ```python
         self.assertIn(
-            "e8f607a26ef5b76a5b8ea24075e75b62d9ba2ea9",
+            "e8f607a2cb1eb6f153809987eccd0d7a40ea1f70",
             workflow,
         )
         self.assertIn(
@@ -164,7 +164,7 @@ Run:
 python3 tests/test_minimal_build.py MinimalBuildTests.test_workflow_is_single_target_and_pinned -v
 ```
 
-Expected: FAIL with `AssertionError: 'e8f607a26ef5b76a5b8ea24075e75b62d9ba2ea9' not found in ...`
+Expected: FAIL with `AssertionError: 'e8f607a2cb1eb6f153809987eccd0d7a40ea1f70' not found in ...`
 
 - [ ] **Step 3: No commit yet**
 
@@ -292,7 +292,7 @@ Open `.github/workflows/build-op11r-minimal.yml`. Locate lines 45-49:
 Replace with:
 
 ```yaml
-          ksu_branch_or_hash: e8f607a26ef5b76a5b8ea24075e75b62d9ba2ea9
+          ksu_branch_or_hash: e8f607a2cb1eb6f153809987eccd0d7a40ea1f70
           expected_ksu_version: 35003
           susfs_commit_hash_or_branch: 4003ecf2d01c6d13fa8edf6c4f2607365738dc3d
           expected_susfs_version: v2.2.0

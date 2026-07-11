@@ -79,7 +79,7 @@ class MinimalBuildTests(unittest.TestCase):
         self.assertIn("workflow_dispatch:", workflow)
         self.assertIn("contents: read", workflow)
         self.assertIn(
-            "e8f607a26ef5b76a5b8ea24075e75b62d9ba2ea9",
+            "e8f607a2cb1eb6f153809987eccd0d7a40ea1f70",
             workflow,
         )
         self.assertIn(

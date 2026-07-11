@@ -21,7 +21,7 @@ The zip is uploaded as a GitHub Actions artifact (private to the fork, 90-day re
 
 ## 2 · Goals
 
-- **G1** Deterministic CI build against v2.2.0-r4-era upstream pins: ReSukiSU commit `e8f607a26ef5b76a5b8ea24075e75b62d9ba2ea9` (KSU_VERSION 35003) + SUSFS `4003ecf2d01c6d13fa8edf6c4f2607365738dc3d` (v2.2.0, android12-5.10 branch). Bit-for-bit reproducibility is NOT a goal (ccache timestamps break it); pin-audit + fail-closed gates are.
+- **G1** Deterministic CI build against v2.2.0-r4-era upstream pins: ReSukiSU commit `e8f607a2cb1eb6f153809987eccd0d7a40ea1f70` (KSU_VERSION 35003) + SUSFS `4003ecf2d01c6d13fa8edf6c4f2607365738dc3d` (v2.2.0, android12-5.10 branch). Bit-for-bit reproducibility is NOT a goal (ccache timestamps break it); pin-audit + fail-closed gates are.
 - **G2** Only SUSFS features compiled in. All other WildKernels features (BBR, BBG, TTL, IP_SET, IP6_NAT, Unicode bypass, Droidspaces, NTSync, HMBIRD SCX, Rust build) disabled at config-JSON level and asserted off at build time.
 - **G3** Fail-closed CI: any pin drift, missing SUSFS Kconfig, or leaked feature causes the workflow to fail with no artifact.
 - **G4** Drop-in compatibility with `METHOD_OP11R.md` Step 5 (unpack → magiskboot → dd to boot_b) — no changes to Steps 1-4 or 6-11.
@@ -93,7 +93,7 @@ Five-layer pipeline. Everything above the divider is code in the fork; everythin
 Six files. Diffs summarize the semantic change; full text derived at plan time.
 
 ### 5.1 `.github/workflows/build-op11r-minimal.yml`
-Bump three input pin lines: `ksu_branch_or_hash → e8f607a26ef5b76a5b8ea24075e75b62d9ba2ea9`, `expected_ksu_version → 35003`, `susfs_commit_hash_or_branch → 4003ecf2d01c6d13fa8edf6c4f2607365738dc3d`, `expected_susfs_version → v2.2.0`. Leave `expected_kernel_release` at `5.10.236-android12-OP11R-RESUKISU-SUSFS`.
+Bump three input pin lines: `ksu_branch_or_hash → e8f607a2cb1eb6f153809987eccd0d7a40ea1f70`, `expected_ksu_version → 35003`, `susfs_commit_hash_or_branch → 4003ecf2d01c6d13fa8edf6c4f2607365738dc3d`, `expected_susfs_version → v2.2.0`. Leave `expected_kernel_release` at `5.10.236-android12-OP11R-RESUKISU-SUSFS`.
 
 ### 5.2 `configs/oos16/OP11r.json`
 No change. Already correct: `susfs=true`; hmbird/ds/bbg/bbr/ttl/ip_set/unicode/ntsync/rust_build/disk_cleanup all `false`; `uname=OP11R-RESUKISU-SUSFS`.

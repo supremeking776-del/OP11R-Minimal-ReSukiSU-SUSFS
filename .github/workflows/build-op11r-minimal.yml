@@ -42,7 +42,7 @@ jobs:
         with:
           op_config_json: ${{ steps.config.outputs.json }}
           ksu_type: ReSukiSU
-          ksu_branch_or_hash: e8f607a26ef5b76a5b8ea24075e75b62d9ba2ea9
+          ksu_branch_or_hash: e8f607a2cb1eb6f153809987eccd0d7a40ea1f70
           expected_ksu_version: 35003
           susfs_commit_hash_or_branch: 4003ecf2d01c6d13fa8edf6c4f2607365738dc3d
           expected_susfs_version: v2.2.0
