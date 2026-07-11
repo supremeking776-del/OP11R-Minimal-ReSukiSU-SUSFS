@@ -2002,24 +2002,37 @@ runs:
         
         make LD="$COMMON_KERNEL_FOLDER/ld-wrapper" HOSTLD="$COMMON_KERNEL_FOLDER/ld-wrapper" O="$OUT" olddefconfig
 
-        grep -q "^CONFIG_KSU=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS_SUS_PATH=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS_SUS_MOUNT=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS_SUS_KSTAT=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS_TRY_UMOUNT=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS_SUS_MAP=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS_OPEN_REDIRECT=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS_SPOOF_UNAME=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS_ENABLE_LOG=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y$" "$OUT/.config"
-        grep -q "^CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y$" "$OUT/.config"
-        ! grep -q "^CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y$" "$OUT/.config"
-        ! grep -q "^CONFIG_KSU_SUSFS_SUS_SU=y$" "$OUT/.config"
+        echo "=== .config sanity check for KSU/SUSFS flags ==="
+        grep -E "^(# )?CONFIG_KSU" "$OUT/.config" | sort || echo "no KSU/SUSFS lines found"
+        echo "=== end sanity dump ==="
+        _assert_y() {
+          if ! grep -q "^${1}=y$" "$OUT/.config"; then
+            echo "::error::defconfig missing required =y: ${1}"; exit 1
+          fi
+        }
+        _assert_not_y() {
+          if grep -q "^${1}=y$" "$OUT/.config"; then
+            echo "::error::defconfig unexpectedly has =y: ${1}"; exit 1
+          fi
+        }
+        _assert_y CONFIG_KSU
+        _assert_y CONFIG_KSU_SUSFS
+        _assert_y CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT
+        _assert_y CONFIG_KSU_SUSFS_SUS_PATH
+        _assert_y CONFIG_KSU_SUSFS_SUS_MOUNT
+        _assert_y CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
+        _assert_y CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
+        _assert_y CONFIG_KSU_SUSFS_SUS_KSTAT
+        _assert_y CONFIG_KSU_SUSFS_TRY_UMOUNT
+        _assert_y CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
+        _assert_y CONFIG_KSU_SUSFS_SUS_MAP
+        _assert_y CONFIG_KSU_SUSFS_OPEN_REDIRECT
+        _assert_y CONFIG_KSU_SUSFS_SPOOF_UNAME
+        _assert_y CONFIG_KSU_SUSFS_ENABLE_LOG
+        _assert_y CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
+        _assert_y CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+        _assert_not_y CONFIG_KSU_SUSFS_SUS_OVERLAYFS
+        _assert_not_y CONFIG_KSU_SUSFS_SUS_SU
         
         KCFLAGS="$KCFLAGS -Wno-error -pipe ${KCFLAGS_EXTRA}"
         KCPPFLAGS="$KCPPFLAGS -DCONFIG_OPTIMIZE_INLINING"
