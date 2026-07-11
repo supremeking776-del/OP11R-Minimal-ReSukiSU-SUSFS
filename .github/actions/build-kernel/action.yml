@@ -1041,6 +1041,14 @@ runs:
               echo "ℹ️ Skipping KernelSU folder patch for ReSukiSU"
             fi
             ;;
+          "v2.2.0")
+            if [ "${{ inputs.ksu_type }}" = "KSU" ]; then
+              cd "$KSU_FOLDER"
+              patch -p1 --forward < "$SUSFS_FOLDER/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch" || true
+            else
+              echo "ℹ️ Skipping KernelSU folder patch for ReSukiSU"
+            fi
+            ;;
           *)
             echo "::error::Unsupported SUSFS version: $susfs_version"
             exit 1
