@@ -13,15 +13,26 @@ inputs:
       - KSU
       - ReSukiSU
   ksu_branch_or_hash:
-    description: 'KSU branch or commit hash (empty = auto-detect by ksu_type)'
-    required: false
+    description: 'Pinned KSU or ReSukiSU commit hash'
+    required: true
     type: string
-    default: ""
+  expected_ksu_version:
+    description: 'Expected ReSukiSU version code'
+    required: true
+    type: string
   susfs_commit_hash_or_branch:
     description: 'SUSFS branch or commit hash (empty = auto-detect by kernel version)'
     required: false
     type: string
     default: ""
+  expected_susfs_version:
+    description: 'Expected SUSFS version'
+    required: true
+    type: string
+  expected_kernel_release:
+    description: 'Expected kernel release embedded in Image'
+    required: true
+    type: string
   build_timestamp:
     description: 'Custom kernel build timestamp shown in uname -a (e.g. "Tue Feb 10 10:01:02 UTC 2026"). Leave empty to use the current build time.'
     required: false
@@ -34,6 +45,11 @@ inputs:
     default: O2
   clean:
     description: 'Force clean build without ccache acceleration'
+    required: false
+    type: boolean
+    default: false
+  minimal:
+    description: 'Skip all non-ReSukiSU and non-SUSFS kernel modifications'
     required: false
     type: boolean
     default: false
@@ -98,7 +114,7 @@ runs:
         echo "ACTION_REF=$ACTION_REF_VAL" >> $GITHUB_ENV
 
     - name: 📥 Checkout Code
-      uses: actions/checkout@v6
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
       with:
         repository: ${{ env.ACTION_REPO }}
         ref: ${{ env.ACTION_REF }}
@@ -859,8 +875,6 @@ runs:
           return 1
         }
         
-        retry_clone "https://github.com/WildKernels/kernel_patches.git" "main" "1"
-        
         if [ "${{ env.OP_SUSFS }}" = true ]; then
           echo "Using SUSFS branch/commit: $SUSFS_BRANCH"
           if ! retry_fetch_archive "https://gitlab.com/simonpunk/susfs4ksu.git" "$SUSFS_BRANCH"; then
@@ -950,11 +964,7 @@ runs:
         cd "$KERNEL_PLATFORM_FOLDER"
         echo "Adding ReSukiSU..."
         
-        if [ "${{ inputs.ksu_branch_or_hash }}" = "" ]; then
-          curl --fail --location --proto '=https' -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -
-        else
-          curl --fail --location --proto '=https' -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s "${{ inputs.ksu_branch_or_hash }}"
-        fi
+        curl --fail --location --proto '=https' -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/${{ inputs.ksu_branch_or_hash }}/kernel/setup.sh" | bash -s "${{ inputs.ksu_branch_or_hash }}"
         
         cd KernelSU
         
@@ -963,6 +973,15 @@ runs:
         
         KSU_COMMIT_SHA=$(git rev-parse HEAD)
         echo "KSU_COMMIT_SHA=$KSU_COMMIT_SHA" >> $GITHUB_ENV
+
+        if [ "$KSU_COMMIT_SHA" != "${{ inputs.ksu_branch_or_hash }}" ]; then
+          echo "::error::ReSukiSU commit mismatch: $KSU_COMMIT_SHA"
+          exit 1
+        fi
+        if [ "$KSU_VERSION" != "${{ inputs.expected_ksu_version }}" ]; then
+          echo "::error::ReSukiSU version mismatch: $KSU_VERSION"
+          exit 1
+        fi
         
         cd ..
         
@@ -986,6 +1005,10 @@ runs:
         cp "$SUSFS_FOLDER/kernel_patches/include/linux/"* "$COMMON_KERNEL_FOLDER/include/linux/"
         
         susfs_version=$(grep '#define SUSFS_VERSION' "$COMMON_KERNEL_FOLDER/include/linux/susfs.h" | awk -F'"' '{print $2}')
+        if [ "$susfs_version" != "${{ inputs.expected_susfs_version }}" ]; then
+          echo "::error::SUSFS version mismatch: $susfs_version"
+          exit 1
+        fi
         echo "SUSVER=$susfs_version" >> $GITHUB_ENV
         echo "$susfs_version" >> "${ARTIFACTS_FOLDER}/${OP_MODEL}_${OP_OS_VERSION}.txt"
         echo "SusFS Version: $susfs_version"
@@ -1220,6 +1243,7 @@ runs:
         echo "::endgroup::"
 
     - name: Apply Other Patches
+      if: ${{ inputs.minimal != 'true' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -1535,6 +1559,7 @@ runs:
         fi
 
     - name: Add Tmpfs Support
+      if: ${{ inputs.minimal != 'true' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -1618,6 +1643,7 @@ runs:
         fi
     
     - name: Add USB DWC3 & OTG Support
+      if: ${{ inputs.minimal != 'true' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -1747,6 +1773,7 @@ runs:
         echo "::endgroup::"
 
     - name: Add Build based configs
+      if: ${{ inputs.minimal != 'true' }}
       shell: bash
       run: |
         set -euo pipefail
@@ -1825,7 +1852,7 @@ runs:
         echo "Customize Kernel Branding"
         cd "$COMMON_KERNEL_FOLDER"
         mkdir -p out
-        CUSTOM_LOCALVERSION="-${ANDROID_VER}-${OP_UNAME}-${{ github.actor }}"
+        CUSTOM_LOCALVERSION="-${ANDROID_VER}-${OP_UNAME}"
         echo "CUSTOM_LOCALVERSION=$CUSTOM_LOCALVERSION" >> "$GITHUB_ENV"
 
     - name: Disable GPUEB
@@ -1966,6 +1993,26 @@ runs:
         
         
         make LD="$COMMON_KERNEL_FOLDER/ld-wrapper" HOSTLD="$COMMON_KERNEL_FOLDER/ld-wrapper" O="$OUT" olddefconfig
+
+        grep -q "^CONFIG_KSU=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS_SUS_PATH=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS_SUS_MOUNT=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS_SUS_KSTAT=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS_TRY_UMOUNT=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS_SUS_MAP=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS_OPEN_REDIRECT=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS_SPOOF_UNAME=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS_ENABLE_LOG=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y$" "$OUT/.config"
+        grep -q "^CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y$" "$OUT/.config"
+        ! grep -q "^CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y$" "$OUT/.config"
+        ! grep -q "^CONFIG_KSU_SUSFS_SUS_SU=y$" "$OUT/.config"
+        ! grep -qE "^CONFIG_(TCP_CONG_BBR|BBG|SM8750_HMBIRD_SCX|DROIDSPACES|NTSYNC|IP_SET|IP6_NAT)=y$" "$OUT/.config"
         
         KCFLAGS="$KCFLAGS -Wno-error -pipe ${KCFLAGS_EXTRA}"
         KCPPFLAGS="$KCPPFLAGS -DCONFIG_OPTIMIZE_INLINING"
@@ -2156,6 +2203,10 @@ runs:
         BUILD_TIME="${BUILD_TIME:-0}"
         
         KERNEL_UNAME=$(strings "$IMG" | grep -E 'Linux version.*#' | tail -n1)
+        if ! printf '%s\n' "$KERNEL_UNAME" | grep -q "${{ inputs.expected_kernel_release }}"; then
+          echo "::error::Unexpected kernel release: $KERNEL_UNAME"
+          exit 1
+        fi
         echo "Kernel Uname: $KERNEL_UNAME"
         echo "KERNEL_UNAME=$KERNEL_UNAME" >> "$GITHUB_ENV"
         
@@ -2189,7 +2240,9 @@ runs:
           echo "::error::Built Image not found at: $IMAGE_PATH"
           exit 1
         fi
-        
+
+        mkdir -p "$ARTIFACTS_FOLDER"
+        cp "$IMAGE_PATH" "$ARTIFACTS_FOLDER/Image"
         cp "$IMAGE_PATH" "$AK3_FOLDER/Image"
         
         mv "${ARTIFACTS_FOLDER}/${OP_MODEL}_${OP_OS_VERSION}.txt" "$AK3_FOLDER/"
@@ -2202,8 +2255,6 @@ runs:
         else
           ZIP_NAME="AK3_${OP_MODEL}_${OP_OS_VERSION}_${KERNEL_FULL_VER}_${{ inputs.ksu_type }}_${KSUVER:-unknown}.zip"
         fi
-        mkdir -p "$ARTIFACTS_FOLDER"
-        
         echo "Creating flashable ZIP: $ZIP_NAME"
         
         if ! zip -r9 "$ZIP_NAME" ./* \
@@ -2215,11 +2266,40 @@ runs:
         fi
         
         mv "$ZIP_NAME" "$ARTIFACTS_FOLDER/"
-        
-        find "$ARTIFACTS_FOLDER" -maxdepth 1 -type f ! -name "$ZIP_NAME" -delete
-        
+
         ZIP_SIZE=$(stat -c%s "$ARTIFACTS_FOLDER/$ZIP_NAME")
         ZIP_SHA256=$(sha256sum "$ARTIFACTS_FOLDER/$ZIP_NAME" | awk '{print $1}')
+        (
+          cd "$ARTIFACTS_FOLDER"
+          sha256sum Image "$ZIP_NAME" > SHA256SUMS
+        )
+        jq -n \
+          --arg target "OnePlus 11R CPH2487 OOS 16.0.5.700" \
+          --arg baseline_pipeline "6daa055b5588fc079fd97297a859d69ab27157fa" \
+          --arg common_kernel "5b5ead1ba41e4a0727a6b6a460deba5718c52cb6" \
+          --arg modules_devicetree "46ba2a7ace39ba653f3f9cc92fdc5af16a771d7e" \
+          --arg anykernel3 "ea531d03965f702a45e1b0ab7c5db8d196c975c3" \
+          --arg resukisu "$KSU_COMMIT_SHA" \
+          --arg resukisu_version "$KSUVER" \
+          --arg susfs "$SUSFS_COMMIT_SHA" \
+          --arg susfs_version "$SUSVER" \
+          --arg kernel_release "${{ inputs.expected_kernel_release }}" \
+          --arg image_sha256 "${{ steps.collect_stats.outputs.image_sha256 }}" \
+          --arg ak3_sha256 "$ZIP_SHA256" \
+          '{
+            target: $target,
+            baseline_pipeline: $baseline_pipeline,
+            common_kernel: $common_kernel,
+            modules_devicetree: $modules_devicetree,
+            anykernel3: $anykernel3,
+            resukisu: $resukisu,
+            resukisu_version: $resukisu_version,
+            susfs: $susfs,
+            susfs_version: $susfs_version,
+            kernel_release: $kernel_release,
+            image_sha256: $image_sha256,
+            ak3_sha256: $ak3_sha256
+          }' > "$ARTIFACTS_FOLDER/build-provenance.json"
         printf 'zip_sha256=%s\n' "$ZIP_SHA256" >> "$GITHUB_OUTPUT"
         
         echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
@@ -2363,7 +2443,7 @@ runs:
 
     - name: Upload Debug Artifacts
       if: ${{ always() && !cancelled() && inputs.debug == 'true' }}
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
         name: ${{ env.DEBUG_ZIP_NAME }}
         path: ${{ env.DEBUG_ARTIFACTS_FOLDER }}
@@ -2372,17 +2452,17 @@ runs:
 
     - name: Upload Artifacts
       if: success() && steps.create_zip.conclusion == 'success'
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
         name: ${{ env.ZIP_NAME }}
-        path: ${{ env.ARTIFACTS_FOLDER }}/${{ env.ZIP_NAME }}
+        path: ${{ env.ARTIFACTS_FOLDER }}/*
         archive: false
         compression-level: 0
         retention-days: 90
 
     - name: Upload ccache log
       if: success() && inputs.debug == 'true' && steps.build_kernel_step.conclusion == 'success'
-      uses: actions/upload-artifact@v7
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
         name: "${{ env.OP_MODEL }}_${{ env.OP_OS_VERSION }}_${{ env.KERNEL_FULL_VER }}_ccache.log"
         path: ${{ env.CCACHE_LOGFILE }}
@@ -2391,7 +2471,7 @@ runs:
         retention-days: 90
 
     - name: 📥 Checkout Code
-      uses: actions/checkout@v6
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
       if: always() && steps.build_kernel_step.conclusion == 'success'
       with:
         path: main-source
