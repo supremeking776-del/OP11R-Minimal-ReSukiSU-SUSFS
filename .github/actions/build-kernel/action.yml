@@ -1224,15 +1224,15 @@ runs:
         fi
         cp fs/proc/version.c fs/proc/version.c.orig
         python3 - <<'PYEOF'
-        import os, pathlib, sys
+        import os, pathlib, re, sys
         banner = os.environ["SPOOF_BANNER"]
         if not banner.endswith("\n"):
             banner += "\n"
         path = pathlib.Path("fs/proc/version.c")
         text = path.read_text()
-        marker = "seq_printf(m, linux_banner);"
-        if marker not in text:
-            print("::error::fs/proc/version.c missing expected seq_printf(m, linux_banner); line", file=sys.stderr)
+        anchor = "static int version_proc_show(struct seq_file *m, void *v)"
+        if anchor not in text:
+            print("::error::fs/proc/version.c missing version_proc_show anchor", file=sys.stderr)
             print(text, file=sys.stderr)
             sys.exit(1)
         def c_escape(s):
@@ -1254,14 +1254,31 @@ runs:
             return '"' + "".join(out) + '"'
         escaped = c_escape(banner)
         static_decl = f"static const char op_spoofed_linux_banner[] = {escaped};\n\n"
-        anchor = "static int version_proc_show(struct seq_file *m, void *v)"
-        if anchor not in text:
-            print("::error::fs/proc/version.c missing version_proc_show anchor", file=sys.stderr)
-            sys.exit(1)
         text = text.replace(anchor, static_decl + anchor, 1)
-        text = text.replace(marker, "seq_puts(m, op_spoofed_linux_banner);", 1)
+        # fs/proc/version.c body varies across kernel trees. Handle both forms:
+        #   1) android12-5.10:  seq_printf(m, linux_proc_banner, utsname()->sysname,
+        #                                    utsname()->release, utsname()->version);
+        #   2) upstream 5.15+:  seq_printf(m, linux_banner);
+        replacement = "seq_puts(m, op_spoofed_linux_banner);"
+        multi = re.compile(
+            r"seq_printf\(m,\s*linux_proc_banner\s*,\s*"
+            r"utsname\(\)->sysname\s*,\s*"
+            r"utsname\(\)->release\s*,\s*"
+            r"utsname\(\)->version\s*\)\s*;",
+            re.MULTILINE | re.DOTALL,
+        )
+        text, n = multi.subn(replacement, text, count=1)
+        if n == 0:
+            single = "seq_printf(m, linux_banner);"
+            if single not in text:
+                print("::error::fs/proc/version.c matches neither linux_proc_banner nor linux_banner pattern", file=sys.stderr)
+                print(text, file=sys.stderr)
+                sys.exit(1)
+            text = text.replace(single, replacement, 1)
+            print("Patched fs/proc/version.c via linux_banner single-arg form")
+        else:
+            print("Patched fs/proc/version.c via linux_proc_banner utsname triple-arg form")
         path.write_text(text)
-        print("Patched fs/proc/version.c with spoofed banner")
         PYEOF
         echo "--- fs/proc/version.c (post-patch) ---"
         cat fs/proc/version.c

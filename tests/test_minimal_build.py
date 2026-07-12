@@ -134,7 +134,12 @@ class MinimalBuildTests(unittest.TestCase):
         self.assertIn(
             "seq_puts(m, op_spoofed_linux_banner);",
             action,
-            "spoof step must replace seq_printf(m, linux_banner) with a spoofed banner",
+            "spoof step must replace the /proc/version writer with a spoofed banner",
+        )
+        self.assertIn(
+            "linux_proc_banner",
+            action,
+            "spoof step must handle the android12-5.10 linux_proc_banner form",
         )
         self.assertIn(
             'Spoofed /proc/version banner not embedded in Image',
