@@ -1208,7 +1208,69 @@ runs:
         EOF
         
         echo "::endgroup::"
-        
+
+    - name: Spoof /proc/version banner
+      if: ${{ env.OP_SPOOF_PROC_VERSION_BANNER != '' && env.OP_SPOOF_PROC_VERSION_BANNER != 'null' }}
+      shell: bash
+      env:
+        SPOOF_BANNER: ${{ env.OP_SPOOF_PROC_VERSION_BANNER }}
+      run: |
+        set -euo pipefail
+        echo "::group::Spoof /proc/version banner"
+        cd "$COMMON_KERNEL_FOLDER"
+        if [ ! -f fs/proc/version.c ]; then
+          echo "::error::fs/proc/version.c not found in $COMMON_KERNEL_FOLDER"
+          exit 1
+        fi
+        cp fs/proc/version.c fs/proc/version.c.orig
+        python3 - <<'PYEOF'
+        import os, pathlib, sys
+        banner = os.environ["SPOOF_BANNER"]
+        if not banner.endswith("\n"):
+            banner += "\n"
+        path = pathlib.Path("fs/proc/version.c")
+        text = path.read_text()
+        marker = "seq_printf(m, linux_banner);"
+        if marker not in text:
+            print("::error::fs/proc/version.c missing expected seq_printf(m, linux_banner); line", file=sys.stderr)
+            print(text, file=sys.stderr)
+            sys.exit(1)
+        def c_escape(s):
+            out = []
+            for c in s:
+                o = ord(c)
+                if c == "\\":
+                    out.append("\\\\")
+                elif c == '"':
+                    out.append('\\"')
+                elif c == "\n":
+                    out.append("\\n")
+                elif c == "\t":
+                    out.append("\\t")
+                elif 32 <= o <= 126:
+                    out.append(c)
+                else:
+                    out.append(f"\\x{o:02x}")
+            return '"' + "".join(out) + '"'
+        escaped = c_escape(banner)
+        static_decl = f"static const char op_spoofed_linux_banner[] = {escaped};\n\n"
+        anchor = "static int version_proc_show(struct seq_file *m, void *v)"
+        if anchor not in text:
+            print("::error::fs/proc/version.c missing version_proc_show anchor", file=sys.stderr)
+            sys.exit(1)
+        text = text.replace(anchor, static_decl + anchor, 1)
+        text = text.replace(marker, "seq_puts(m, op_spoofed_linux_banner);", 1)
+        path.write_text(text)
+        print("Patched fs/proc/version.c with spoofed banner")
+        PYEOF
+        echo "--- fs/proc/version.c (post-patch) ---"
+        cat fs/proc/version.c
+        echo "--- diff summary ---"
+        diff -u fs/proc/version.c.orig fs/proc/version.c || true
+        rm -f fs/proc/version.c.orig
+        echo "✅ /proc/version banner spoof injected"
+        echo "::endgroup::"
+
     - name: Add BBG
       if: ${{ env.OP_BBG == 'true' }}
       shell: bash
@@ -2219,13 +2281,26 @@ runs:
         IMG_SHA256=$(sha256sum "$IMG" | awk '{print $1}')
         BUILD_TIME="${BUILD_TIME:-0}"
         
-        KERNEL_UNAME=$(strings "$IMG" | grep -E 'Linux version.*#' | tail -n1)
-        if ! printf '%s\n' "$KERNEL_UNAME" | grep -q "${{ inputs.expected_kernel_release }}"; then
-          echo "::error::Unexpected kernel release: $KERNEL_UNAME"
+        # Disambiguate: with /proc/version banner spoofing, `strings Image` yields
+        # BOTH the real linux_banner and the spoofed op_spoofed_linux_banner. Match
+        # the real one explicitly by requiring the expected release token to appear.
+        KERNEL_UNAME=$(strings "$IMG" | grep -E "Linux version [^ ]*${{ inputs.expected_kernel_release }}" | head -n1)
+        if [ -z "$KERNEL_UNAME" ]; then
+          echo "::error::linux_banner containing expected release not found in Image"
+          echo "--- all Linux version strings in Image ---"
+          strings "$IMG" | grep -E 'Linux version' || true
           exit 1
         fi
         echo "Kernel Uname: $KERNEL_UNAME"
         echo "KERNEL_UNAME=$KERNEL_UNAME" >> "$GITHUB_ENV"
+        if [ -n "${OP_SPOOF_PROC_VERSION_BANNER:-}" ] && [ "$OP_SPOOF_PROC_VERSION_BANNER" != "null" ]; then
+          if ! strings "$IMG" | grep -qF "$OP_SPOOF_PROC_VERSION_BANNER"; then
+            echo "::error::Spoofed /proc/version banner not embedded in Image"
+            echo "Expected substring: $OP_SPOOF_PROC_VERSION_BANNER"
+            exit 1
+          fi
+          echo "✅ Spoofed /proc/version banner embedded in Image"
+        fi
         
         printf 'warnings_count=%s\n' "$WARNINGS_COUNT" >> "$GITHUB_OUTPUT"
         printf 'image_sha256=%s\n' "$IMG_SHA256" >> "$GITHUB_OUTPUT"

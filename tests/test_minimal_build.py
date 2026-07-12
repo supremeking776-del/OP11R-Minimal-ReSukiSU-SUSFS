@@ -39,6 +39,20 @@ class MinimalBuildTests(unittest.TestCase):
         ):
             self.assertFalse(config[feature], feature)
 
+        banner = config["spoof_proc_version_banner"]
+        self.assertTrue(banner.startswith("Linux version "), banner)
+        self.assertIn(
+            "5.10.236-android12-9-o-g2bee83b9e1eb",
+            banner,
+            "banner must contain the stock OOS 16.0.5.700 kernel release token",
+        )
+        self.assertNotIn(
+            "OP11R-RESUKISU-SUSFS",
+            banner,
+            "banner must NOT leak the custom kernel identifier",
+        )
+        self.assertIn(" #", banner, "banner must include the SMP tail")
+
     def test_manifest_pins_verified_source_revisions(self):
         root = ET.parse(
             ROOT / "manifests" / "oos16" / "oneplus_11r_w.xml"
@@ -103,6 +117,36 @@ class MinimalBuildTests(unittest.TestCase):
         self.assertNotIn("schedule:", workflow)
         self.assertNotIn("mirror_toolchain", workflow)
         self.assertIn("minimal: true", workflow)
+
+    def test_build_action_spoofs_proc_version_banner(self):
+        action = BUILD_ACTION.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "- name: Spoof /proc/version banner",
+            action,
+            "build-kernel must include the /proc/version banner spoof step",
+        )
+        self.assertIn(
+            "env.OP_SPOOF_PROC_VERSION_BANNER",
+            action,
+            "spoof step must be gated by OP_SPOOF_PROC_VERSION_BANNER env var",
+        )
+        self.assertIn(
+            "seq_puts(m, op_spoofed_linux_banner);",
+            action,
+            "spoof step must replace seq_printf(m, linux_banner) with a spoofed banner",
+        )
+        self.assertIn(
+            'Spoofed /proc/version banner not embedded in Image',
+            action,
+            "Image verification must fail closed if the spoofed banner is missing",
+        )
+        self.assertIn(
+            'grep -E "Linux version [^ ]*${{ inputs.expected_kernel_release }}"',
+            action,
+            "kernel-release check must match the real linux_banner explicitly, "
+            "not the last 'Linux version' line",
+        )
 
     def test_build_action_excludes_unrelated_kernel_changes(self):
         action = BUILD_ACTION.read_text(encoding="utf-8")
@@ -179,7 +223,7 @@ class MinimalBuildTests(unittest.TestCase):
             '_assert_y CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG',
             '_assert_y CONFIG_KSU_SUSFS_OPEN_REDIRECT',
             '_assert_y CONFIG_KSU_SUSFS_SUS_MAP',
-            'grep -q "${{ inputs.expected_kernel_release }}"',
+            'grep -E "Linux version [^ ]*${{ inputs.expected_kernel_release }}"',
         ):
             self.assertIn(assertion, action)
 

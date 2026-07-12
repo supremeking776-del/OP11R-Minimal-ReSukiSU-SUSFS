@@ -22,5 +22,6 @@
   "ip_set": false,
   "unicode": false,
   "ntsync": false,
-  "uname": "OP11R-RESUKISU-SUSFS"
+  "uname": "OP11R-RESUKISU-SUSFS",
+  "spoof_proc_version_banner": "Linux version 5.10.236-android12-9-o-g2bee83b9e1eb (build-user@build-host) (Android (7284624, based on r416183b) clang version 12.0.5 (https://android.googlesource.com/toolchain/llvm-project c935d99d7cf2016289302412d708641d52d2f7ee), LLD 12.0.5 (/buildbot/src/android/llvm-toolchain/out/llvm-project/lld c935d99d7cf2016289302412d708641d52d2f7ee)) #1 SMP PREEMPT Mon May 11 02:04:22 UTC 2026"
 }
